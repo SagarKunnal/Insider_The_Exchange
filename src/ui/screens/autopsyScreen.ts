@@ -94,25 +94,37 @@ export function renderAutopsyScreen(opts: {
     root.appendChild(stmtGrid);
   }
 
-  // Per-ghost row with distinct hem shape icons
+  // Per-ghost row with distinct hem shape icons & individual progress bars
   const ghostRow = document.createElement('div');
   ghostRow.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;';
   for (const id of ['pinky', 'inky', 'blinky'] as const) {
     const cfg = GHOST_CONFIG[id];
-    const knewT = report.knewBy[id];
-    const hitRate = report.ghostHitRates[id];
+    const gp = report.ghostProgress?.[id];
+    const knewT = gp?.knewByT ?? report.knewBy[id];
+    const hitRate = gp?.hitRate ?? report.ghostHitRates[id];
+    const progressPct = gp?.progressPct ?? (knewT !== undefined ? Math.max(60, hitRate) : hitRate);
+    const hitCountText = gp && gp.total > 0 ? ` (${gp.hits}/${gp.total})` : '';
+    const statusText =
+      knewT !== undefined
+        ? `Knew you by ${formatTimeMMSS(knewT)}`
+        : progressPct > 0
+          ? `Progress ${progressPct}%`
+          : 'Still learning';
     const gCard = document.createElement('article');
     gCard.className = 'mat-glassmorphism';
-    gCard.style.cssText = 'padding:14px 16px;border-radius:14px;display:flex;flex-direction:column;gap:6px;';
+    gCard.style.cssText = 'padding:14px 16px;border-radius:14px;display:flex;flex-direction:column;gap:8px;';
     gCard.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;">
         ${iconGhostShape(id, cfg.colorHex, 20)}
         <strong>${cfg.name}</strong>
         <span style="font-size:0.8rem;color:var(--umber-soft);">· ${cfg.specialty}</span>
       </div>
+      <div class="mat-neu-inset" style="height:7px;border-radius:999px;overflow:hidden;border-width:1px;">
+        <div style="height:100%;width:${progressPct}%;background:${cfg.colorHex};border-radius:999px;transition:width 240ms var(--ease-out);"></div>
+      </div>
       <div style="display:flex;justify-content:space-between;font-size:0.85rem;">
-        <span>${knewT !== undefined ? `Knew you by ${formatTimeMMSS(knewT)}` : 'Still learning'}</span>
-        <strong class="type-stat">${hitRate}% hits</strong>
+        <span>${statusText}</span>
+        <strong class="type-stat">${hitRate}% hits${hitCountText}</strong>
       </div>
     `;
     ghostRow.appendChild(gCard);

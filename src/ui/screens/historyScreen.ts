@@ -1,5 +1,8 @@
+import { GHOST_CONFIG } from '../../data/tuning';
 import type { RunSummary } from '../../game/core/types';
+import { formatTimeMMSS } from '../../report/phrases';
 import { createNeuButton } from '../components/buttons';
+import { iconGhostShape } from '../components/icons';
 
 function renderSparkline(runs: RunSummary[]): HTMLElement {
   const ordered = [...runs].reverse();
@@ -60,9 +63,12 @@ export function renderHistoryScreen(opts: {
     const row = document.createElement('div');
     row.className = 'mat-neu-extrude';
     row.style.cssText =
-      'padding:12px 16px;border-radius:14px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;';
+      'padding:12px 16px;border-radius:14px;display:flex;flex-direction:column;gap:10px;';
     const dateTxt = new Date(r.date).toLocaleDateString();
-    row.innerHTML = `
+
+    const topLine = document.createElement('div');
+    topLine.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;';
+    topLine.innerHTML = `
       <div>
         <strong>Round ${r.rounds}</strong>
         <span style="font-size:0.8rem;color:var(--umber-soft);margin-left:8px;">${dateTxt}</span>
@@ -74,6 +80,34 @@ export function renderHistoryScreen(opts: {
         <span class="type-stat">Breaks ${r.patternBreaks}</span>
       </div>
     `;
+    row.appendChild(topLine);
+
+    if (r.ghostProgress) {
+      const ghostStrip = document.createElement('div');
+      ghostStrip.style.cssText =
+        'display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;padding-top:4px;border-top:1px solid rgba(47,61,55,0.1);';
+      for (const id of ['pinky', 'inky', 'blinky'] as const) {
+        const cfg = GHOST_CONFIG[id];
+        const gp = r.ghostProgress[id];
+        const cell = document.createElement('div');
+        cell.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:0.78rem;';
+        const status = gp.knewByT !== undefined ? formatTimeMMSS(gp.knewByT) : `${gp.progressPct}%`;
+        cell.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <span style="display:inline-flex;align-items:center;gap:5px;color:var(--umber-ink);font-weight:600;">
+              ${iconGhostShape(id, cfg.colorHex, 14)} ${cfg.name}
+            </span>
+            <span class="type-stat" style="color:var(--umber-soft);">${gp.hitRate}% hits · ${status}</span>
+          </div>
+          <div class="mat-neu-inset" style="height:5px;border-radius:999px;overflow:hidden;border-width:1px;">
+            <div style="height:100%;width:${gp.progressPct}%;background:${cfg.colorHex};border-radius:999px;"></div>
+          </div>
+        `;
+        ghostStrip.appendChild(cell);
+      }
+      row.appendChild(ghostStrip);
+    }
+
     list.appendChild(row);
   }
 

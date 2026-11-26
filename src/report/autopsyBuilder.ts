@@ -10,6 +10,7 @@ import type {
   DecisionEvent,
   EntropySample,
   GhostId,
+  GhostProgressSummary,
   PredictionRecord,
   ReplayClip,
 } from '../game/core/types';
@@ -27,7 +28,9 @@ export interface AutopsyInput {
   entropyTimeline: EntropySample[];
   peakMultiplier: number;
   knewBy: Partial<Record<GhostId, number>>;
+  ghostLearningProgress?: Partial<Record<GhostId, number>>;
   hotspots: Array<{ junctionId: number; corridorHint: string; meanDwellMs: number; count: number }>;
+  timingSummary?: { samples: number; meanDwellMs: number; steadyPct: number };
   favoriteLoop?: { description: string; repeats: number; junctionCount: number };
   favoriteRoute?: { corridorHint: string; exitCorridor: string; pct: number; rawN: number };
   topCorridor?: { nickname: string; visits: number };
@@ -53,6 +56,7 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
     inky: 0,
     blinky: 0,
   };
+  const ghostProgress = {} as Record<GhostId, GhostProgressSummary>;
 
   let pooledHits = 0;
   let pooledTotal = 0;
@@ -60,7 +64,22 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
   for (const id of ['pinky', 'inky', 'blinky'] as const) {
     const preds = input.predictions.filter((p) => p.ghostId === id && p.hit !== undefined);
     const hits = preds.filter((p) => p.hit).length;
-    ghostHitRates[id] = preds.length > 0 ? Math.round((hits / preds.length) * 100) : 0;
+    const hitRate = preds.length > 0 ? Math.round((hits / preds.length) * 100) : 0;
+    ghostHitRates[id] = hitRate;
+    const rawProgress = input.ghostLearningProgress?.[id];
+    const derivedProgress =
+      rawProgress !== undefined
+        ? Math.max(0, Math.min(100, Math.round(rawProgress)))
+        : preds.length > 0
+          ? Math.min(100, Math.max(hitRate, Math.round((preds.length / 6) * 100)))
+          : 0;
+    ghostProgress[id] = {
+      progressPct: input.knewBy[id] !== undefined ? Math.max(60, derivedProgress) : derivedProgress,
+      hits,
+      total: preds.length,
+      hitRate,
+      knewByT: input.knewBy[id],
+    };
     pooledHits += hits;
     pooledTotal += preds.length;
   }
@@ -112,7 +131,7 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
       });
     }
 
-    // 3. Hesitation hotspot (>= 3 dwells >= 350ms)
+    // 3. Hesitation hotspot (>= 3 dwells >= 350ms) or junction cadence (>= 6 timed crossings)
     if (input.hotspots.length > 0 && input.hotspots[0].count >= 3) {
       const hs = input.hotspots[0];
       const text = phrasesJson.autopsy.hotspot
@@ -128,9 +147,19 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
         confidenceOK: true,
         isQuote: true,
       });
+    } else if (input.timingSummary && input.timingSummary.samples >= 6) {
+      statements.push({
+        id: 'timing-cadence',
+        ghostId: 'inky',
+        text: `You crossed intersections in ${input.timingSummary.meanDwellMs} ms on average (${input.timingSummary.steadyPct}% steady rhythm).`,
+        stat: `${input.timingSummary.samples} timed crossings`,
+        knewByT: input.knewBy.inky,
+        confidenceOK: true,
+        isQuote: true,
+      });
     }
 
-    // 4. Favorite loop (>= 2 repeats)
+    // 4. Favorite loop (>= 2 repeats) or learned route turn or top corridor (>= 3 visits)
     if (input.favoriteLoop && input.favoriteLoop.repeats >= 2) {
       const text = phrasesJson.autopsy.favoriteLoop
         .replace('{len}', String(input.favoriteLoop.junctionCount))
@@ -155,10 +184,7 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
         confidenceOK: true,
         isQuote: true,
       });
-    }
-
-    // 5. Most-frequented corridor when overall run is sufficient (>= 4 visits)
-    if (statements.length === 0 && input.topCorridor && input.topCorridor.visits >= 4) {
+    } else if (input.topCorridor && input.topCorridor.visits >= 3) {
       statements.push({
         id: 'top-corridor',
         ghostId: 'pinky',
@@ -180,6 +206,7 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
     statements,
     knewBy: input.knewBy,
     ghostHitRates,
+    ghostProgress,
     predictabilityIndex,
     meanEntropy,
     peakMultiplier: Number(input.peakMultiplier.toFixed(1)),
@@ -198,14 +225,17 @@ export function buildAutopsyFromWorld(world: {
   score: number;
   elapsedS: number;
   graph: MazeGraph;
-  ghosts: Record<GhostId, { state: { knewAtT?: number } }>;
+  ghosts: Record<GhostId, { state: { knewAtT?: number; confidence?: number } }>;
   recorder: {
     decisions: DecisionEvent[];
     predictions: PredictionRecord[];
     patternBreaks: Array<unknown>;
     corridorStats?: Map<string, { corridorId: string; visits: number }>;
     entropy: { getTimeline: () => EntropySample[]; getPeakMultiplier: () => number };
-    timingModel: { getHotspots: () => Array<{ junctionId: number; dwellMeanMs: number; longDwellCount: number }> };
+    timingModel: {
+      getHotspots: () => Array<{ junctionId: number; dwellMeanMs: number; longDwellCount: number }>;
+      getSummary?: () => { samples: number; meanDwellMs: number; steadyPct: number };
+    };
     routeModel: {
       getDetectedLoop: () => { junctionIds: number[]; repeats: number } | null;
       getTopJunctionHabit?: (graph: MazeGraph) => {
@@ -317,7 +347,13 @@ export function buildAutopsyFromWorld(world: {
       inky: world.ghosts.inky.state.knewAtT,
       blinky: world.ghosts.blinky.state.knewAtT,
     },
+    ghostLearningProgress: {
+      pinky: Math.round((world.ghosts.pinky.state.confidence ?? 0) * 100),
+      inky: Math.round((world.ghosts.inky.state.confidence ?? 0) * 100),
+      blinky: Math.round((world.ghosts.blinky.state.confidence ?? 0) * 100),
+    },
     hotspots,
+    timingSummary: world.recorder.timingModel.getSummary?.(),
     favoriteLoop,
     favoriteRoute,
     topCorridor,

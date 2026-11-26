@@ -133,7 +133,13 @@ describe('End-to-End Screen DOM Verification', () => {
 
     expect(report.sufficientData).toBe(true);
     expect(report.score).toBeGreaterThan(0);
-    expect(report.statements.length).toBeGreaterThanOrEqual(1);
+    expect(report.statements.length).toBeGreaterThanOrEqual(2);
+    expect(report.ghostProgress).toBeDefined();
+    expect(report.ghostProgress!.pinky.total).toBeGreaterThan(0);
+    expect(report.ghostProgress!.inky.total).toBeGreaterThan(0);
+    expect(report.ghostProgress!.pinky.progressPct).toBeGreaterThan(0);
+    expect(report.ghostProgress!.inky.progressPct).toBeGreaterThan(0);
+    expect(report.ghostProgress!.blinky.progressPct).toBeGreaterThan(0);
 
     saveRunSummary(
       {
@@ -144,12 +150,15 @@ describe('End-to-End Screen DOM Verification', () => {
         predictabilityIndex: report.predictabilityIndex,
         meanEntropy: report.meanEntropy,
         patternBreaks: report.patternBreaks,
+        ghostProgress: report.ghostProgress,
       },
       report.clips,
     );
     const saved = loadRunHistory();
     expect(saved.length).toBe(1);
     expect(saved[0].score).toBe(report.score);
+    expect(saved[0].ghostProgress?.pinky.total).toBe(report.ghostProgress!.pinky.total);
+    expect(saved[0].ghostProgress?.inky.total).toBe(report.ghostProgress!.inky.total);
 
     const autopsy = renderAutopsyScreen({
       report,
@@ -161,8 +170,19 @@ describe('End-to-End Screen DOM Verification', () => {
       onWatchClip: vi.fn(),
     });
     expect(autopsy.element.textContent).toContain(String(report.score));
+    expect(autopsy.element.textContent).toContain('Pinky');
+    expect(autopsy.element.textContent).toContain('Inky');
+    expect(autopsy.element.textContent).toContain('Blinky');
     expect(autopsy.element.textContent).not.toContain('Not enough habits yet');
     autopsy.cleanup();
+
+    const historyEl = renderHistoryScreen({
+      runs: saved,
+      onBack: vi.fn(),
+    });
+    expect(historyEl.textContent).toContain('Pinky');
+    expect(historyEl.textContent).toContain('Inky');
+    expect(historyEl.textContent).toContain('Blinky');
 
     // 3. Verify fresh HudSnapshot resets paused/lives/score for Haunt Again
     const fresh = buildHudSnapshot(createWorld(2, 'fresh-run'));

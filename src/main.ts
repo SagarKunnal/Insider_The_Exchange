@@ -373,6 +373,7 @@ function bootstrap(): void {
             predictabilityIndex: report.predictabilityIndex,
             meanEntropy: report.meanEntropy,
             patternBreaks: report.patternBreaks,
+            ghostProgress: report.ghostProgress,
           },
           report.clips,
         );

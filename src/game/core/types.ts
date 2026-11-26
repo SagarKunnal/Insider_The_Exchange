@@ -185,6 +185,14 @@ export interface AutopsyStatement {
   isQuote?: boolean;
 }
 
+export interface GhostProgressSummary {
+  progressPct: number;
+  hits: number;
+  total: number;
+  hitRate: number;
+  knewByT?: number;
+}
+
 export interface AutopsyReport {
   runId: string;
   round: number;
@@ -194,6 +202,7 @@ export interface AutopsyReport {
   statements: AutopsyStatement[];
   knewBy: Partial<Record<GhostId, number>>;
   ghostHitRates: Record<GhostId, number>;
+  ghostProgress?: Record<GhostId, GhostProgressSummary>;
   predictabilityIndex: number;
   meanEntropy: number;
   peakMultiplier: number;
@@ -225,6 +234,7 @@ export interface RunSummary {
   predictabilityIndex: number;
   meanEntropy: number;
   patternBreaks: number;
+  ghostProgress?: Record<GhostId, GhostProgressSummary>;
 }
 
 export interface GhostMindSnapshot {

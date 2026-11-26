@@ -58,6 +58,7 @@ export class HabitRecorder {
   private pendingThreat: { event: ThreatEvent; expiresAtS: number } | null = null;
   private lastGhostDist = new Map<GhostId, number>();
   private lastThreatNotifyS = -100;
+  lastPreTimingPred: { t: number; junctionId: number; confidence: number; expectedMs: number; junctionSamples: number } | null = null;
 
   step(
     player: PlayerState,
@@ -274,7 +275,7 @@ export class HabitRecorder {
 
     // Evaluate route model's prior confident prediction on this decision before updating weights
     const prePred = this.routeModel.predict(event.junctionId, event.entryDir, graph);
-    if (prePred.source === 'context' && prePred.rawN >= 3 && prePred.confidence >= 0.45) {
+    if (prePred.source !== 'uniform' && prePred.rawN >= 2 && prePred.confidence >= 0.45) {
       const hit = prePred.predictedExit === event.exitDir;
       const cor = graph.getCorridorById(event.corridorId);
       this.recordPrediction(
@@ -294,6 +295,18 @@ export class HabitRecorder {
         graph,
       );
     }
+
+    // Snapshot pre-decision TimingModel cadence prediction before updating dwell stats
+    const preTiming = this.timingModel.predictJunctionDwell(event.junctionId);
+    this.lastPreTimingPred = preTiming
+      ? {
+          t: nowS,
+          junctionId: event.junctionId,
+          confidence: preTiming.confidence,
+          expectedMs: preTiming.expectedMs,
+          junctionSamples: preTiming.junctionSamples,
+        }
+      : null;
 
     // Update models
     this.routeModel.observe(event, graph);

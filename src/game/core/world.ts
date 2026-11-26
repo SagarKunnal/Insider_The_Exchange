@@ -283,7 +283,7 @@ function handleDecisionAndFeedback(
     }
   }
 
-  // 4. Evaluate Inky timing prediction at registered hotspots
+  // 4. Evaluate Inky timing prediction (registered hotspots OR junction cadence)
   const inky = world.ghosts.inky;
   const hotspots = world.recorder.timingModel.getHotspots();
   if (hotspots.length > 0) {
@@ -291,6 +291,7 @@ function handleDecisionAndFeedback(
   } else if (world.recorder.timingModel.getTimingConfidence() >= CONFIDENCE_ACT_THRESHOLD) {
     maybeEmitRecognitionCallout(world, 'inky', 'timing', false, bus);
   }
+  let inkyRecorded = false;
   if (
     inky.state.released &&
     !inky.inDen &&
@@ -328,7 +329,51 @@ function handleDecisionAndFeedback(
         world.recorder,
         bus,
       );
+      inkyRecorded = true;
     }
+  }
+  const preTiming = world.recorder.lastPreTimingPred;
+  if (
+    !inkyRecorded &&
+    inky.state.released &&
+    !inky.inDen &&
+    preTiming &&
+    preTiming.t === decision.t &&
+    preTiming.junctionId === decision.junctionId &&
+    preTiming.confidence >= CONFIDENCE_ACT_THRESHOLD &&
+    (preTiming.junctionSamples >= 2 || inky.state.mode === 'predict')
+  ) {
+    const jTile = world.graph.getJunctionById(decision.junctionId)?.tile;
+    const dist = jTile ? world.graph.pathDistance(nearestTile(inky.pos, world.maze.cols), jTile, false) : 99;
+    const predictedPause = preTiming.expectedMs >= 260;
+    const actualPause = decision.dwellMs >= 260;
+    const hit = dist <= 5 || (predictedPause && actualPause);
+    const rec = {
+      t: decision.t,
+      ghostId: 'inky' as const,
+      kind: 'timing' as const,
+      context: `cadence:${decision.junctionId}`,
+      predicted: `${Math.round(preTiming.expectedMs)}ms`,
+      confidence: preTiming.confidence,
+      actual: `${decision.dwellMs}ms`,
+      hit,
+      consequential: decision.threat,
+      junctionId: decision.junctionId,
+      corridorNickname: cor?.nickname,
+    };
+    world.recorder.recordPrediction(rec, world.graph);
+    world.clipRecorder.onPrediction(rec);
+    updateGhostRollingAccuracy(inky, hit, decision.t);
+    world.recalibration.evaluatePrediction(
+      inky,
+      hit,
+      rec.context,
+      decision.t,
+      world.ambushPlanner,
+      world.ghosts,
+      world.recorder,
+      bus,
+    );
   }
 }
 
@@ -426,7 +471,8 @@ export function stepWorld(
 
     if (id === 'pinky') {
       const dec = evaluateRouteBrain(world.player, world.recorder.routeModel, world.graph, forceStage0);
-      g.state.confidence = dec.confidence;
+      const learnedProgress = world.recorder.routeModel.getLearningProgress();
+      g.state.confidence = Math.max(dec.confidence, learnedProgress);
       g.state.speedMul = baseSpeedMul;
       if (dec.active && dec.target) {
         g.state.mode = 'predict';
@@ -436,7 +482,11 @@ export function stepWorld(
         g.state.mode = 'chase';
         const s0 = computeStage0Target('pinky', gTile, g.patrolIndex, world.player, world.graph);
         g.patrolIndex = s0.patrolIndex;
-        g.state.predictionLine = s0.predictionLine;
+        const ctxCount = world.recorder.routeModel.getContextCount();
+        g.state.predictionLine =
+          ctxCount > 0 && g.state.confidence >= CONFIDENCE_ACT_THRESHOLD
+            ? `Mapped ${ctxCount} crossing habits — narrowing your exits.`
+            : s0.predictionLine;
         targets[id] = s0.target;
       }
     } else if (id === 'inky') {

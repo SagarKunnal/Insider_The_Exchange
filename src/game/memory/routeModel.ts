@@ -276,6 +276,52 @@ export class RouteModel {
     return this.contextCounts.size;
   }
 
+  /**
+   * Overall route learning progress [0..1] reflecting repeated crossings & loops
+   * across the whole maze so Pinky's live progress stays accurate between crossings.
+   */
+  getLearningProgress(): number {
+    if (this.globalDecisions === 0) return 0;
+
+    const topConfs: number[] = [];
+    for (const ctx of this.contextCounts.values()) {
+      if (ctx.rawN < 2) continue;
+      let best = 0;
+      for (const c of Object.values(ctx.counts)) {
+        if (c && c > best) best = c;
+      }
+      const p = ctx.n > 0 ? (best + LAPLACE_ALPHA) / (ctx.n + LAPLACE_ALPHA * 3) : 0;
+      topConfs.push(computeConfidence(p, ctx.n));
+    }
+
+    if (topConfs.length === 0) {
+      for (const js of this.junctionStats.values()) {
+        if (js.rawN < 2) continue;
+        let maxExit = 0;
+        const exitTotals: Record<string, number> = {};
+        for (const sub of Object.values(js.counts)) {
+          if (!sub) continue;
+          for (const [d, w] of Object.entries(sub)) {
+            exitTotals[d] = (exitTotals[d] ?? 0) + (w ?? 0);
+            if (exitTotals[d] > maxExit) maxExit = exitTotals[d];
+          }
+        }
+        const p = js.n > 0 ? (maxExit + LAPLACE_ALPHA) / (js.n + LAPLACE_ALPHA * 3) : 0;
+        topConfs.push(computeConfidence(p, js.n) * 0.85);
+      }
+    }
+
+    topConfs.sort((a, b) => b - a);
+    const activeSlice = topConfs.slice(0, 3);
+    const modelScore =
+      activeSlice.length > 0 ? activeSlice.reduce((s, v) => s + v, 0) / activeSlice.length : 0;
+    const loop = this.getDetectedLoop();
+    const loopBoost = loop && loop.repeats >= 2 ? Math.min(0.95, 0.55 + loop.repeats * 0.1) : 0;
+    const explorationFloor = Math.min(0.32, (this.globalDecisions / 20) * 0.32);
+
+    return Math.min(0.98, Math.max(modelScore, loopBoost, explorationFloor));
+  }
+
   getTopJunctionHabit(graph: MazeGraph): {
     junctionId: number;
     corridorHint: string;
@@ -313,6 +359,32 @@ export class RouteModel {
           rawN: ctx.rawN,
           score,
         };
+      }
+    }
+
+    if (!best) {
+      for (const js of this.junctionStats.values()) {
+        if (js.rawN < 3) continue;
+        const j = graph.getJunctionById(js.junctionId);
+        const firstEntry = (Object.keys(js.counts)[0] as Direction | undefined) ?? j?.exits[0];
+        if (!firstEntry) continue;
+        const pred = this.predict(js.junctionId, firstEntry, graph);
+        if (pred.p < 0.5) continue;
+        const exitCid = j?.corridorByDir[pred.predictedExit];
+        const exitNick = exitCid ? graph.getCorridorById(exitCid)?.nickname ?? exitCid : `junction ${js.junctionId}`;
+        const firstCid = j && j.exits[0] ? j.corridorByDir[j.exits[0]] : undefined;
+        const hintNick = firstCid ? graph.getCorridorById(firstCid)?.nickname ?? firstCid : `junction ${js.junctionId}`;
+        const score = js.rawN * pred.p;
+        if (!best || score > best.score) {
+          best = {
+            junctionId: js.junctionId,
+            corridorHint: hintNick,
+            relTurnPct: Math.round(pred.p * 100),
+            exitCorridor: exitNick,
+            rawN: js.rawN,
+            score,
+          };
+        }
       }
     }
     return best;

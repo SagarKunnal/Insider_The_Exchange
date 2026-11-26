@@ -20,6 +20,9 @@ export interface TimingJunctionStat {
 export class TimingModel {
   private readonly corridorTraversalS = new Map<string, { meanS: number; n: number }>();
   private readonly junctionDwell = new Map<number, TimingJunctionStat>();
+  private globalDwellSumMs = 0;
+  private globalDwellCount = 0;
+  private steadyCrossings = 0;
 
   observeCorridorTraversal(corridorId: string, durationS: number): void {
     if (!Number.isFinite(durationS) || durationS <= 0 || durationS > 30) return;
@@ -48,7 +51,11 @@ export class TimingModel {
     if (event.dwellMs >= DWELL_FLAG_MS) {
       stat.longDwellCount += 1;
       stat.lastDwellT = event.t;
+    } else {
+      this.steadyCrossings += 1;
     }
+    this.globalDwellSumMs += event.dwellMs;
+    this.globalDwellCount += 1;
     stat.strength = Math.min(1, stat.longDwellCount / HOTSPOT_MIN_DWELLS);
     this.junctionDwell.set(event.junctionId, stat);
   }
@@ -94,10 +101,45 @@ export class TimingModel {
     for (const s of this.corridorTraversalS.values()) {
       if (s.n > maxRepeats) maxRepeats = s.n;
     }
-    if (maxRepeats < 3) {
-      return computeConfidence(0.4, maxRepeats);
+    const cadenceConf =
+      this.globalDwellCount >= 5
+        ? computeConfidence(0.7, Math.min(this.globalDwellCount, 8))
+        : this.globalDwellCount >= 2
+          ? computeConfidence(0.45, this.globalDwellCount) * 0.75
+          : 0;
+    const corridorConf =
+      maxRepeats >= 3
+        ? computeConfidence(0.75, Math.min(maxRepeats, 6))
+        : maxRepeats > 0
+          ? computeConfidence(0.4, maxRepeats)
+          : 0;
+    return Math.max(cadenceConf, corridorConf);
+  }
+
+  predictJunctionDwell(junctionId: number): { confidence: number; expectedMs: number; junctionSamples: number } | null {
+    const stat = this.junctionDwell.get(junctionId);
+    if (stat && stat.dwellN >= 2) {
+      return {
+        confidence: computeConfidence(0.78, stat.dwellN),
+        expectedMs: stat.dwellMeanMs,
+        junctionSamples: stat.dwellN,
+      };
     }
-    return computeConfidence(0.75, Math.min(maxRepeats, 6));
+    if (this.globalDwellCount >= 5) {
+      return {
+        confidence: this.getTimingConfidence(),
+        expectedMs: this.globalDwellSumMs / this.globalDwellCount,
+        junctionSamples: stat?.dwellN ?? 0,
+      };
+    }
+    return null;
+  }
+
+  getSummary(): { samples: number; meanDwellMs: number; steadyPct: number } {
+    const samples = this.globalDwellCount;
+    const meanDwellMs = samples > 0 ? Math.round(this.globalDwellSumMs / samples) : 0;
+    const steadyPct = samples > 0 ? Math.round((this.steadyCrossings / samples) * 100) : 0;
+    return { samples, meanDwellMs, steadyPct };
   }
 
   softenJunction(junctionId: number): void {
