@@ -1,0 +1,24 @@
+{
+  "recognition": {
+    "pinky_route": "Pinky has mapped your favorite route.",
+    "pinky_loop": "Pinky has learned your favorite loop.",
+    "inky_timing": "Inky is timing your cadence.",
+    "inky_hotspot": "Inky knows where you freeze.",
+    "blinky_panic": "Blinky has learned your panic reflex.",
+    "blinky_escape": "Blinky knows where you flee."
+  },
+  "capture": {
+    "ambush": "{ghost} was waiting in {corridor}. You've fled there {count} times.",
+    "route": "{ghost} cut you off at {corridor}, expecting your usual turn.",
+    "timing": "{ghost} timed your arrival at {corridor}.",
+    "panic": "{ghost} blocked your {turn} reflex near {corridor}.",
+    "neutral": "{ghost} caught you near {corridor}."
+  },
+  "autopsy": {
+    "insufficient": "Not enough habits yet. The ghosts barely got to know you.",
+    "panicTurn": "When scared you {turnPhrase} {pct}% of the time.",
+    "favoriteEscape": "Your favorite escape was {corridor} ({count} times).",
+    "hotspot": "You hesitated {count} times at the crossing near {corridor} (avg {avgMs} ms).",
+    "favoriteLoop": "You repeated the same {len}-junction loop {repeats} times until Pinky waited ahead."
+  }
+}
