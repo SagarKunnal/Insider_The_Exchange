@@ -177,3 +177,4 @@
 - What was done:
   - Added `.gitignore` (`node_modules/`, `dist/`, `.vite/`, local/OS files) and `README.md`.
   - Initialized git repository, committed project files, and pushed to `https://github.com/SagarKunnal/Haunted-by-Yourself`.
+- Updated `README.md` to match submission format (`insiders`, `Track II — Learning / Adaptive Behavior`, `The Haunted Algorithm`, concise non-technical `Idea`, `How to Run`) and renaming GitHub repo to `I_The_Exchange`.
