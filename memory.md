@@ -178,3 +178,9 @@
   - Added `.gitignore` (`node_modules/`, `dist/`, `.vite/`, local/OS files) and `README.md`.
   - Initialized git repository, committed project files, and pushed to `https://github.com/SagarKunnal/Haunted-by-Yourself`.
 - Updated `README.md` to match submission format (`insiders`, `Track II — Learning / Adaptive Behavior`, `The Haunted Algorithm`, concise non-technical `Idea`, `How to Run`) and renaming GitHub repo to `I_The_Exchange`.
+
+## Post-Game Recording & Autopsy Display Fix
+- **Junction exit capture (`src/game/memory/recorder.ts`)**: Added `reachedCenter` latch to `ActiveJunctionVisit` so exit directions are only recorded after crossing a junction's center (`dist <= 0.25`), preventing premature recording of `entryDir` as `exitDir` on approach.
+- **Autopsy statement coverage (`src/game/memory/routeModel.ts`, `src/report/autopsyBuilder.ts`)**: Added `RouteModel.getTopJunctionHabit(graph)` plus `favorite-route` and `top-corridor` fallback statements so organic runs (`>= 45s`) populate truthful Autopsy findings instead of empty lists.
+- **Post-game transitions & run reset (`src/ui/motion.ts`, `src/ui/screens/autopsyScreen.ts`, `src/main.ts`)**: Split `transitionScreen` into eased opacity fade + spring `y` transform, removed competing header/card opacity springs, wired `Run History` navigation from the Autopsy footer, and reset full HUD/run state in `startNewRun()`.
+- **Verification**: All 11 test suites (46 tests including `tests/e2eDom.test.ts` regression coverage) and `npm run build` (`tsc --noEmit && vite build`) pass.

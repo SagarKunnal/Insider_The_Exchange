@@ -275,4 +275,46 @@ export class RouteModel {
   getContextCount(): number {
     return this.contextCounts.size;
   }
+
+  getTopJunctionHabit(graph: MazeGraph): {
+    junctionId: number;
+    corridorHint: string;
+    relTurnPct: number;
+    exitCorridor: string;
+    rawN: number;
+  } | null {
+    let best: {
+      junctionId: number;
+      corridorHint: string;
+      relTurnPct: number;
+      exitCorridor: string;
+      rawN: number;
+      score: number;
+    } | null = null;
+
+    for (const [key, ctx] of this.contextCounts.entries()) {
+      if (ctx.rawN < 3) continue;
+      const [jStr, entryStr] = key.split(':');
+      const jId = Number(jStr);
+      const pred = this.predict(jId, entryStr as Direction, graph);
+      if (pred.p < 0.55) continue;
+      const j = graph.getJunctionById(jId);
+      const exitCid = j?.corridorByDir[pred.predictedExit];
+      const exitNick = exitCid ? graph.getCorridorById(exitCid)?.nickname ?? exitCid : `junction ${jId}`;
+      const entryCid = j?.corridorByDir[entryStr as Direction];
+      const entryNick = entryCid ? graph.getCorridorById(entryCid)?.nickname ?? entryCid : `junction ${jId}`;
+      const score = ctx.rawN * pred.p;
+      if (!best || score > best.score) {
+        best = {
+          junctionId: jId,
+          corridorHint: entryNick,
+          relTurnPct: Math.round(pred.p * 100),
+          exitCorridor: exitNick,
+          rawN: ctx.rawN,
+          score,
+        };
+      }
+    }
+    return best;
+  }
 }

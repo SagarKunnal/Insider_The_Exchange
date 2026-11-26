@@ -31,6 +31,7 @@ interface ActiveJunctionVisit {
   junctionId: number;
   entryDir: Direction;
   enteredAtS: number;
+  reachedCenter: boolean;
   fired: boolean;
 }
 
@@ -127,16 +128,18 @@ export class HabitRecorder {
     }
 
     if (nearJunction) {
+      const distToNear = graph.continuousDistance(player.pos, nearJunction.tile);
       if (!this.activeVisit) {
         this.activeVisit = {
           junctionId: nearJunction.id,
           entryDir: player.dir,
           enteredAtS: nowS,
+          reachedCenter: distToNear <= 0.25,
           fired: false,
         };
       } else if (this.activeVisit.junctionId !== nearJunction.id) {
-        // Direct jump between adjacent junctions: fire previous visit first
-        if (!this.activeVisit.fired) {
+        // Direct jump between adjacent junctions: fire previous visit first if center was reached
+        if (!this.activeVisit.fired && this.activeVisit.reachedCenter) {
           const prevJ = graph.getJunctionById(this.activeVisit.junctionId);
           if (prevJ) {
             const exitDir =
@@ -151,23 +154,27 @@ export class HabitRecorder {
           junctionId: nearJunction.id,
           entryDir: player.dir,
           enteredAtS: nowS,
+          reachedCenter: distToNear <= 0.25,
           fired: false,
         };
       } else if (!this.activeVisit.fired) {
-        // Still inside active junction zone: fire once player crosses onto a non-junction neighbor tile or moves > 0.45 away along exit
         const jDef = graph.getJunctionById(this.activeVisit.junctionId);
         if (jDef) {
           const distFromCenter = graph.continuousDistance(player.pos, jDef.tile);
+          if (distFromCenter <= 0.25) {
+            this.activeVisit.reachedCenter = true;
+          }
           const leftCenterTile = pTile.x !== jDef.tile.x || pTile.y !== jDef.tile.y;
-          if (leftCenterTile || (distFromCenter > 0.45 && player.moving)) {
+          // Fire ONLY after crossing the junction center so turns executed at the center are captured accurately
+          if (this.activeVisit.reachedCenter && (leftCenterTile || (distFromCenter > 0.45 && player.moving))) {
             const exitDir = this.resolveExitDir(jDef.tile, player, graph);
             this.fireDecision(this.activeVisit, exitDir, player, ghosts, graph, nowS, bus, onDecision);
           }
         }
       }
     } else if (this.activeVisit) {
-      // Exited junction zone; ensure single fire if not yet fired
-      if (!this.activeVisit.fired) {
+      // Exited junction zone; ensure single fire if center was crossed
+      if (!this.activeVisit.fired && this.activeVisit.reachedCenter) {
         const jDef = graph.getJunctionById(this.activeVisit.junctionId);
         if (jDef) {
           const exitDir = this.resolveExitDir(jDef.tile, player, graph);

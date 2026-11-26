@@ -48,25 +48,38 @@ export function transitionScreen(
     host.innerHTML = '';
     host.appendChild(incoming);
     if (!isReducedMotionPreferred(reducedMotion)) {
-      springAnimate(incoming, { opacity: [0, 1], y: [24, 0] }, 'soft', false);
+      springAnimate(incoming, { y: [18, 0] }, 'soft', false);
     }
     return;
   }
 
   for (const oldEl of existing) {
+    if (oldEl.dataset.exiting === '1') {
+      oldEl.remove();
+      continue;
+    }
+    oldEl.dataset.exiting = '1';
     oldEl.style.pointerEvents = 'none';
-    oldEl.style.position = 'absolute';
+    oldEl.style.position = 'fixed';
     oldEl.style.inset = '0';
+    oldEl.style.zIndex = '0';
     animate(
       oldEl,
       { opacity: [1, 0], scale: [1, 0.98], filter: ['blur(0px)', 'blur(6px)'] } as Parameters<typeof animate>[1],
-      { duration: 0.38, ease: [0.22, 1, 0.36, 1] },
+      { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
     );
-    setTimeout(() => oldEl.remove(), 420);
+    setTimeout(() => oldEl.remove(), 360);
   }
 
+  incoming.style.position = 'relative';
+  incoming.style.zIndex = '1';
   host.appendChild(incoming);
-  springAnimate(incoming, { opacity: [0, 1], y: [24, 0] }, 'soft', false);
+  animate(
+    incoming,
+    { opacity: [0, 1] } as Parameters<typeof animate>[1],
+    { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+  );
+  springAnimate(incoming, { y: [24, 0] }, 'soft', false);
 }
 
 /**

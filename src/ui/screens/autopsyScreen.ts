@@ -15,6 +15,7 @@ export function renderAutopsyScreen(opts: {
   reducedMotion: boolean;
   onHauntAgain: () => void;
   onTitle: () => void;
+  onHistory?: () => void;
   onWatchClip: (clip: ReplayClip) => void;
 }): { element: HTMLElement; cleanup: () => void } {
   const { report, previousRun, reducedMotion } = opts;
@@ -44,7 +45,7 @@ export function renderAutopsyScreen(opts: {
   if (!reducedMotion) {
     header.classList.add('developing-photo');
     requestAnimationFrame(() => header.classList.add('is-developed'));
-    springAnimate(header, { opacity: [0, 1], y: [18, 0] }, 'soft', false);
+    springAnimate(header, { y: [14, 0] }, 'soft', false);
   }
 
   // Comparison delta chips (ST-02)
@@ -86,7 +87,7 @@ export function renderAutopsyScreen(opts: {
       parallaxTargets.push({ el: card, factor: idx === 0 ? 0.04 : idx % 2 === 1 ? 0.08 : 0.02 });
       if (!reducedMotion) {
         setTimeout(() => {
-          springAnimate(card, { opacity: [0, 1], y: [14, 0] }, 'soft', false);
+          springAnimate(card, { y: [12, 0] }, 'soft', false);
         }, idx * 90);
       }
     });
@@ -173,6 +174,9 @@ export function renderAutopsyScreen(opts: {
   leftBtns.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;';
   leftBtns.appendChild(createBrassButton('Haunt Again', opts.onHauntAgain));
   leftBtns.appendChild(createNeuButton('Title', opts.onTitle));
+  if (opts.onHistory) {
+    leftBtns.appendChild(createNeuButton('Run History', opts.onHistory));
+  }
 
   const exportBtn = createNeuButton('Export Debug JSON', () => {
     const blob = new Blob([opts.debugJson], { type: 'application/json' });

@@ -8,7 +8,14 @@ import './ui/tokens.css';
 import { createFullAutopsyFixture, createMidRunInspectFixture } from './dev/previewFixtures';
 import { EventBus } from './game/core/eventBus';
 import { FixedStepLoop } from './game/core/loop';
-import { createWorld, endWorldRun, queueWorldInput, stepWorld, type WorldState } from './game/core/world';
+import {
+  buildHudSnapshot,
+  createWorld,
+  endWorldRun,
+  queueWorldInput,
+  stepWorld,
+  type WorldState,
+} from './game/core/world';
 import { CanvasRenderer } from './game/render/canvasRenderer';
 import { AudioEngine } from './platform/audio';
 import { bindKeyboardInput, bindTouchSwipeInput } from './platform/input';
@@ -182,8 +189,9 @@ function bootstrap(): void {
     inspectAutopsyFixture = null;
     world = createWorld(Date.now() & 0x7fffffff);
     trailVisibility = { ...settings.trails };
-    store.setScreen('playing');
     loop.setPaused(false);
+    // Reset store immediately with fresh run state (lives=3, score=0, paused=false) before mounting
+    store.setState({ ...buildHudSnapshot(world), trails: trailVisibility });
     loop.start();
   };
 
@@ -274,9 +282,10 @@ function bootstrap(): void {
         onSettings: openSettings,
         onEndRun: () => {
           if (world) {
+            world.paused = false;
+            loop.setPaused(false);
             endWorldRun(world, 'manual', bus);
             loop.stop();
-            store.setScreen('autopsy');
           }
         },
         initialTrails: trailVisibility,
@@ -382,6 +391,7 @@ function bootstrap(): void {
         reducedMotion: settings.reducedMotion,
         onHauntAgain: startNewRun,
         onTitle: () => store.setScreen('title'),
+        onHistory: () => store.setScreen('history'),
         onWatchClip: (clip) => {
           if (replayOverlay) return;
           replayOverlay = createReplayModal({
@@ -450,8 +460,7 @@ function bootstrap(): void {
     store.setScreen('briefing');
     return;
   }
-
-  renderScreen('title');
+  // Note: store.subscribe() above already mounted 'title' synchronously on initial subscription.
 }
 
 bootstrap();

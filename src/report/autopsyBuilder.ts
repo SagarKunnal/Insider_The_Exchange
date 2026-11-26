@@ -14,6 +14,7 @@ import type {
   ReplayClip,
 } from '../game/core/types';
 import { formatTimeMMSS, turnToPhrase } from './phrases';
+import type { MazeGraph } from '../game/core/graph';
 
 export interface AutopsyInput {
   runId: string;
@@ -28,6 +29,8 @@ export interface AutopsyInput {
   knewBy: Partial<Record<GhostId, number>>;
   hotspots: Array<{ junctionId: number; corridorHint: string; meanDwellMs: number; count: number }>;
   favoriteLoop?: { description: string; repeats: number; junctionCount: number };
+  favoriteRoute?: { corridorHint: string; exitCorridor: string; pct: number; rawN: number };
+  topCorridor?: { nickname: string; visits: number };
   favoriteEscape?: { corridorId: string; nickname: string; count: number; pct: number };
   panicSummary: {
     threatCount: number;
@@ -141,6 +144,30 @@ export function buildAutopsyReport(input: AutopsyInput): AutopsyReport {
         confidenceOK: true,
         isQuote: true,
       });
+    } else if (input.favoriteRoute) {
+      // 4b. Learned route turn habit (>= 3 visits to same crossing, >= 55% bias)
+      statements.push({
+        id: 'favorite-route',
+        ghostId: 'pinky',
+        text: `Approaching ${input.favoriteRoute.corridorHint}, you took ${input.favoriteRoute.exitCorridor} ${input.favoriteRoute.pct}% of the time.`,
+        stat: `${input.favoriteRoute.pct}% across ${input.favoriteRoute.rawN} crossings`,
+        knewByT: input.knewBy.pinky,
+        confidenceOK: true,
+        isQuote: true,
+      });
+    }
+
+    // 5. Most-frequented corridor when overall run is sufficient (>= 4 visits)
+    if (statements.length === 0 && input.topCorridor && input.topCorridor.visits >= 4) {
+      statements.push({
+        id: 'top-corridor',
+        ghostId: 'pinky',
+        text: `You returned to ${input.topCorridor.nickname} ${input.topCorridor.visits} times during the chase.`,
+        stat: `${input.topCorridor.visits} visits`,
+        knewByT: input.knewBy.pinky,
+        confidenceOK: true,
+        isQuote: true,
+      });
     }
   }
 
@@ -170,18 +197,25 @@ export function buildAutopsyFromWorld(world: {
   round: number;
   score: number;
   elapsedS: number;
-  graph: {
-    getJunctionById: (id: number) => { corridorByDir: Record<string, string>; exits: string[] } | undefined;
-    getCorridorById: (id: string) => { nickname: string } | undefined;
-  };
+  graph: MazeGraph;
   ghosts: Record<GhostId, { state: { knewAtT?: number } }>;
   recorder: {
     decisions: DecisionEvent[];
     predictions: PredictionRecord[];
     patternBreaks: Array<unknown>;
+    corridorStats?: Map<string, { corridorId: string; visits: number }>;
     entropy: { getTimeline: () => EntropySample[]; getPeakMultiplier: () => number };
     timingModel: { getHotspots: () => Array<{ junctionId: number; dwellMeanMs: number; longDwellCount: number }> };
-    routeModel: { getDetectedLoop: () => { junctionIds: number[]; repeats: number } | null };
+    routeModel: {
+      getDetectedLoop: () => { junctionIds: number[]; repeats: number } | null;
+      getTopJunctionHabit?: (graph: MazeGraph) => {
+        junctionId: number;
+        corridorHint: string;
+        relTurnPct: number;
+        exitCorridor: string;
+        rawN: number;
+      } | null;
+    };
     panicModel: {
       getThreatDecisionCount: () => number;
       predictPanicTurn: () => { biasedTurn: 'L' | 'R' | 'S' | 'U' };
@@ -238,6 +272,36 @@ export function buildAutopsyFromWorld(world: {
       }
     : undefined;
 
+  const routeHabit = world.recorder.routeModel.getTopJunctionHabit
+    ? world.recorder.routeModel.getTopJunctionHabit(world.graph)
+    : null;
+  const favoriteRoute = routeHabit
+    ? {
+        corridorHint: routeHabit.corridorHint,
+        exitCorridor: routeHabit.exitCorridor,
+        pct: routeHabit.relTurnPct,
+        rawN: routeHabit.rawN,
+      }
+    : undefined;
+
+  let topCorridor: { nickname: string; visits: number } | undefined;
+  if (world.recorder.corridorStats) {
+    let bestVisits = 0;
+    let bestId = '';
+    for (const stat of world.recorder.corridorStats.values()) {
+      if (stat.visits > bestVisits) {
+        bestVisits = stat.visits;
+        bestId = stat.corridorId;
+      }
+    }
+    if (bestVisits > 0) {
+      topCorridor = {
+        nickname: world.graph.getCorridorById(bestId)?.nickname ?? bestId,
+        visits: bestVisits,
+      };
+    }
+  }
+
   return buildAutopsyReport({
     runId: world.runId,
     round: world.round,
@@ -255,6 +319,8 @@ export function buildAutopsyFromWorld(world: {
     },
     hotspots,
     favoriteLoop,
+    favoriteRoute,
+    topCorridor,
     favoriteEscape,
     panicSummary: {
       threatCount: threatDecisions.length,
