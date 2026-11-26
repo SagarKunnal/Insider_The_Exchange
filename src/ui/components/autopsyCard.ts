@@ -10,8 +10,11 @@ export function createAutopsyCard(statement: AutopsyStatement): HTMLElement {
   const knewTxt =
     statement.knewByT !== undefined ? `Knew by ${formatTimeMMSS(statement.knewByT)}` : 'Observed';
   const cfg = statement.ghostId ? GHOST_CONFIG[statement.ghostId] : null;
+  if (cfg) {
+    card.style.borderLeft = `3px solid ${cfg.colorHex}`;
+  }
   const ghostTag = cfg
-    ? `<span style="display:inline-flex;align-items:center;gap:6px;">${iconGhostShape(cfg.id, cfg.colorHex, 16)}<span>${cfg.name}</span></span>`
+    ? `<span style="display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--umber-ink);">${iconGhostShape(cfg.id, cfg.colorHex, 16)}<span>${cfg.name}</span></span>`
     : '';
 
   const quoteStyle = statement.isQuote

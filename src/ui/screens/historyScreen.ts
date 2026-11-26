@@ -1,35 +1,65 @@
 import { GHOST_CONFIG } from '../../data/tuning';
 import type { RunSummary } from '../../game/core/types';
 import { formatTimeMMSS } from '../../report/phrases';
-import { createNeuButton } from '../components/buttons';
+import { createNeuButton, createNeuChip } from '../components/buttons';
 import { iconGhostShape } from '../components/icons';
+import { createSessionChip } from '../components/sessionChip';
 
 function renderSparkline(runs: RunSummary[]): HTMLElement {
   const ordered = [...runs].reverse();
   const w = 520;
-  const h = 64;
+  const h = 76;
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   svg.style.cssText = 'width:100%;height:auto;display:block;';
 
+  for (const pct of [25, 50, 75]) {
+    const gy = h - 10 - (pct / 100) * (h - 20);
+    const guide = document.createElementNS(ns, 'line');
+    guide.setAttribute('x1', '12');
+    guide.setAttribute('x2', String(w - 12));
+    guide.setAttribute('y1', gy.toFixed(1));
+    guide.setAttribute('y2', gy.toFixed(1));
+    guide.setAttribute('stroke', 'rgba(74,90,82,0.16)');
+    guide.setAttribute('stroke-dasharray', '3 3');
+    svg.appendChild(guide);
+  }
+
   if (ordered.length >= 2) {
-    const pts = ordered.map((r, i) => {
-      const x = (i / (ordered.length - 1)) * (w - 20) + 10;
-      const y = h - 8 - (Math.max(0, Math.min(100, r.predictabilityIndex)) / 100) * (h - 16);
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    const coords = ordered.map((r, i) => {
+      const x = (i / (ordered.length - 1)) * (w - 28) + 14;
+      const y = h - 10 - (Math.max(0, Math.min(100, r.predictabilityIndex)) / 100) * (h - 20);
+      return { x, y };
     });
+    const d = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
     const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', pts.join(' '));
+    path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', '#2F8F83');
     path.setAttribute('stroke-width', '2.5');
     svg.appendChild(path);
+
+    for (const c of coords) {
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', c.x.toFixed(1));
+      dot.setAttribute('cy', c.y.toFixed(1));
+      dot.setAttribute('r', '3.5');
+      dot.setAttribute('fill', '#FBF7EE');
+      dot.setAttribute('stroke', '#1F6359');
+      dot.setAttribute('stroke-width', '2');
+      svg.appendChild(dot);
+    }
   }
   const wrap = document.createElement('div');
   wrap.className = 'mat-neu-inset';
-  wrap.style.cssText = 'padding:12px 14px;border-radius:14px;';
-  wrap.innerHTML = '<div class="type-caption" style="margin-bottom:6px;">Predictability Index Trend</div>';
+  wrap.style.cssText = 'padding:14px 16px;border-radius:14px;';
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span class="type-caption">Predictability Index Trend</span>
+      <span style="font-size:0.75rem;color:var(--umber-soft);">Lower = more elusive</span>
+    </div>
+  `;
   wrap.appendChild(svg);
   return wrap;
 }
@@ -39,25 +69,43 @@ export function renderHistoryScreen(opts: {
   onBack: () => void;
 }): HTMLElement {
   const root = document.createElement('section');
-  root.style.cssText =
-    'max-width:780px;width:100%;margin:0 auto;padding:28px 20px;display:flex;flex-direction:column;gap:18px;';
+  root.className = 'history-screen';
+
+  const topHeader = document.createElement('header');
+  topHeader.className = 'page-shell-header mat-liquid-glass';
+  topHeader.innerHTML = `
+    <div>
+      <div class="type-caption" style="color:var(--moss-deep);">Archive · Habit Log</div>
+      <h1 class="type-h1" style="margin:4px 0 0;font-size:clamp(1.6rem,3vw,2.2rem);">Run History</h1>
+    </div>
+  `;
+  const headActions = document.createElement('div');
+  headActions.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+  headActions.append(
+    createSessionChip(),
+    createNeuChip(`${opts.runs.length} ${opts.runs.length === 1 ? 'Run' : 'Runs'}`),
+    createNeuButton('Back', opts.onBack),
+  );
+  topHeader.appendChild(headActions);
 
   const panel = document.createElement('div');
   panel.className = 'mat-glassmorphism';
-  panel.style.cssText = 'padding:24px;border-radius:20px;display:flex;flex-direction:column;gap:16px;';
-
-  const head = document.createElement('div');
-  head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
-  head.innerHTML = '<div><div class="type-caption">Archive</div><h1 class="type-h1" style="margin:4px 0 0;">Run History</h1></div>';
-  head.appendChild(createNeuButton('Back', opts.onBack));
-  panel.appendChild(head);
+  panel.style.cssText = 'padding:22px 24px;border-radius:20px;display:flex;flex-direction:column;gap:16px;';
 
   if (opts.runs.length >= 2) {
     panel.appendChild(renderSparkline(opts.runs));
   }
 
   const list = document.createElement('div');
-  list.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+  list.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+
+  if (opts.runs.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'mat-neu-inset';
+    empty.style.cssText = 'padding:22px;border-radius:14px;text-align:center;color:var(--umber-soft);';
+    empty.textContent = 'No completed runs archived yet.';
+    list.appendChild(empty);
+  }
 
   for (const r of opts.runs) {
     const row = document.createElement('div');
@@ -112,6 +160,6 @@ export function renderHistoryScreen(opts: {
   }
 
   panel.appendChild(list);
-  root.appendChild(panel);
+  root.append(topHeader, panel);
   return root;
 }

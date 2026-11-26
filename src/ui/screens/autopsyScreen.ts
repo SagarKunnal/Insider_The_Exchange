@@ -5,7 +5,8 @@ import { formatTimeMMSS } from '../../report/phrases';
 import { createAutopsyCard } from '../components/autopsyCard';
 import { createBrassButton, createNeuButton, createNeuChip } from '../components/buttons';
 import { createEntropyChart } from '../components/entropyChart';
-import { iconGhostShape, iconReplay } from '../components/icons';
+import { iconArchive, iconGhostShape, iconReplay } from '../components/icons';
+import { createSessionChip } from '../components/sessionChip';
 import { bindLiquidSheen, springAnimate } from '../motion';
 
 export function renderAutopsyScreen(opts: {
@@ -22,6 +23,26 @@ export function renderAutopsyScreen(opts: {
   const root = document.createElement('section');
   root.className = 'autopsy-screen';
 
+  // Top Utility Page Header
+  const pageTop = document.createElement('div');
+  pageTop.className = 'page-shell-header mat-liquid-glass';
+  const unbindTopSheen = bindLiquidSheen(pageTop);
+  pageTop.innerHTML = `
+    <div>
+      <div class="type-caption" style="color:var(--moss-deep);">Post-Run Dossier</div>
+      <div style="font-size:0.78rem;color:var(--umber-soft);">Run ${report.runId}</div>
+    </div>
+  `;
+  const pageTopActions = document.createElement('div');
+  pageTopActions.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+  pageTopActions.appendChild(createSessionChip());
+  if (opts.onHistory) {
+    pageTopActions.appendChild(createNeuButton('Run History', opts.onHistory, { iconSvg: iconArchive() }));
+  }
+  pageTopActions.appendChild(createNeuButton('Title', opts.onTitle));
+  pageTop.appendChild(pageTopActions);
+  root.appendChild(pageTop);
+
   // Liquid Glass Header with Skeuomorphic Brass Dossier Stamp + developing photograph reveal
   const header = document.createElement('header');
   header.className = 'autopsy-header mat-liquid-glass';
@@ -31,12 +52,14 @@ export function renderAutopsyScreen(opts: {
   hLeft.innerHTML = `
     <div class="type-caption">Dossier · ${formatTimeMMSS(report.durationS)}</div>
     <h1 class="type-h1" style="margin:6px 0 0;">Habit Autopsy</h1>
+    <p style="margin:6px 0 0;font-size:0.9rem;color:var(--umber-soft);">What the three mirrors extracted from your movement</p>
   `;
 
   const stamp = document.createElement('div');
   stamp.className = 'brass-dossier-stamp';
   stamp.innerHTML = `
     <div><div class="type-caption" style="color:var(--umber-ink);font-size:11px;">Round</div><strong class="type-stat" style="font-size:1.35rem;">${report.round}</strong></div>
+    <div style="width:1px;height:28px;background:rgba(42,38,34,0.25);"></div>
     <div><div class="type-caption" style="color:var(--umber-ink);font-size:11px;">Score</div><strong class="type-stat" style="font-size:1.35rem;">${report.score}</strong></div>
   `;
   header.append(hLeft, stamp);
@@ -112,7 +135,7 @@ export function renderAutopsyScreen(opts: {
           : 'Still learning';
     const gCard = document.createElement('article');
     gCard.className = 'mat-glassmorphism';
-    gCard.style.cssText = 'padding:14px 16px;border-radius:14px;display:flex;flex-direction:column;gap:8px;';
+    gCard.style.cssText = `padding:16px 16px;border-radius:14px;border-top:3px solid ${cfg.colorHex};display:flex;flex-direction:column;gap:8px;`;
     gCard.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;">
         ${iconGhostShape(id, cfg.colorHex, 20)}
@@ -215,6 +238,7 @@ export function renderAutopsyScreen(opts: {
   return {
     element: root,
     cleanup: () => {
+      unbindTopSheen();
       unbindSheen();
       window.removeEventListener('scroll', onScroll);
     },

@@ -45,8 +45,7 @@ export function createGameScreen(actions: GameScreenActions): {
     'display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:center;gap:20px;width:100%;max-width:1040px;';
 
   const canvasWrap = document.createElement('div');
-  canvasWrap.style.cssText =
-    'position:relative;border-radius:18px;padding:10px;background:var(--moss-deep);box-shadow:0 18px 40px -18px rgba(47,61,55,0.45);max-width:100%;';
+  canvasWrap.className = 'game-canvas-frame';
 
   const canvas = document.createElement('canvas');
   canvas.style.cssText = 'display:block;border-radius:10px;max-width:100%;height:auto;touch-action:none;';

@@ -461,18 +461,98 @@ body {
   border-radius: 20px 0 0 20px;
 }
 
+/* Shared Page Shell & Header Chrome */
+.page-shell-header {
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 18px;
+  border-radius: 16px;
+}
+
+.page-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Title & Briefing & Autopsy polish */
 .title-glass-letters {
   text-shadow:
-    -1px -1px 0 rgba(251, 247, 238, 0.65),
-    1px 2px 10px rgba(47, 61, 55, 0.14);
+    -1px -1px 0 rgba(251, 247, 238, 0.72),
+    1px 2px 12px rgba(47, 61, 55, 0.16);
+}
+
+.title-specimen-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 0 auto 14px;
+  padding: 8px 18px;
+  width: fit-content;
+  border-radius: 999px;
+  background: var(--glass-scrim);
+  border: 1px solid rgba(74, 90, 82, 0.22);
+}
+
+.title-trait-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 26px;
+}
+
+.title-footer-hint {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  font-size: 0.78rem;
+  color: var(--umber-soft);
+}
+
+.briefing-screen {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
 }
 
 .briefing-grid {
   display: grid;
-  grid-template-columns: 1.12fr 1fr 1fr;
+  grid-template-columns: 1.08fr 1fr 1fr;
   gap: 16px;
   width: 100%;
+}
+
+.briefing-card {
+  padding: 22px 20px;
+  border-radius: 18px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+
+.briefing-swatch-frame {
+  padding: 8px 12px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 780px) {
@@ -481,11 +561,36 @@ body {
   }
 }
 
+.game-canvas-frame {
+  position: relative;
+  border-radius: 20px;
+  padding: 12px;
+  background: linear-gradient(155deg, var(--moss-ridge-top) 0%, var(--moss-deep) 100%);
+  border: 2px solid rgba(194, 138, 46, 0.42);
+  box-shadow:
+    inset 1px 1px 0 rgba(251, 247, 238, 0.22),
+    0 20px 42px -18px rgba(47, 61, 55, 0.5);
+  max-width: 100%;
+}
+
+.hud-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 14px;
+  border-right: 1px solid rgba(74, 90, 82, 0.18);
+}
+
+.hud-metric:last-of-type {
+  border-right: none;
+  padding-right: 0;
+}
+
 .autopsy-screen {
-  max-width: 880px;
+  max-width: 920px;
   width: 100%;
   margin: 0 auto;
-  padding: 28px 20px 64px;
+  padding: 24px 20px 64px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -499,6 +604,16 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.history-screen {
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .developing-photo {
@@ -671,32 +786,49 @@ body.reduced-motion *::after {
 
 .title-screen {
   flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
+  justify-content: space-between;
+  padding: 22px 24px 28px;
+  gap: 24px;
   text-align: center;
   position: relative;
 }
 
 .title-top-bar {
-  position: absolute;
-  top: 20px;
-  right: 24px;
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
+  padding: 10px 18px;
+  border-radius: 16px;
 }
 
 .title-card {
-  max-width: 640px;
-  padding: 44px 40px;
-  border-radius: 24px;
+  position: relative;
+  width: 100%;
+  max-width: 660px;
+  padding: 40px 42px 36px;
+  border-radius: 26px;
+}
+
+.title-card::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(194, 138, 46, 0.24);
+  pointer-events: none;
 }
 
 .title-subtitle {
-  margin: 16px 0 32px;
+  margin: 14px 0 22px;
   font-size: 1.125rem;
   color: var(--umber-soft);
 }
@@ -713,6 +845,17 @@ body.reduced-motion *::after {
   flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .title-card {
+    padding: 28px 20px 26px;
+  }
+
+  .hud-metric {
+    border-right: none;
+    padding-right: 0;
+  }
 }
 
 /* Responsive mobile/narrow collapse (Design.md §7.3) */

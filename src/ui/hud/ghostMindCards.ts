@@ -34,7 +34,7 @@ export function createGhostMindCards(): {
     const card = document.createElement('article');
     card.className = 'ghost-mind-card mat-glassmorphism';
     card.style.cssText =
-      'padding:12px 14px;border-radius:14px;display:flex;flex-direction:column;gap:6px;transition:box-shadow 220ms ease,transform 220ms ease;';
+      `padding:12px 14px;border-radius:14px;border-left:3px solid ${cfg.colorHex};display:flex;flex-direction:column;gap:6px;transition:box-shadow 220ms ease,transform 220ms ease;`;
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
@@ -53,7 +53,7 @@ export function createGhostMindCards(): {
 
     const stateEl = document.createElement('span');
     stateEl.style.cssText =
-      'display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:600;white-space:nowrap;';
+      'display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:600;white-space:nowrap;padding:3px 8px;border-radius:999px;background:rgba(251,247,238,0.68);border:1px solid rgba(74,90,82,0.16);';
     stateEl.innerHTML = `${iconMode('chase', 'var(--umber-soft)')}<span>Chasing</span>`;
 
     header.append(titleWrap, stateEl);
